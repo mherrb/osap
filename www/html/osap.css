@@ -1,0 +1,50 @@
+BODY {
+  /* margin-right: auto; */
+  /* margin-left: 5ex; */
+  margin: 1em 15% 1em 15%;
+  max-width: 72ex;
+  padding: 1ex;
+  background: #ffffff;
+  color: #093f72;
+  font-family: sans-serif;
+}
+
+H1 { 
+  text-align: center;
+}
+
+form { 
+  background-color: #ffffff;
+  border: 1px solid; 
+}
+
+INPUT { 
+  background-color: #efefff;
+  border: #093f72 1px solid;
+  color: #093f72;
+}
+
+.oswap-button-ok { 
+  border: #093f72 1px solid; 
+  background-color: #efefff;
+  color: #09723f;
+ 
+}
+
+.oswap-button-cancel { 
+  border: #093f72 1px solid; 
+  background-color: #efefff;
+  color: #72093f;
+ 
+}
+
+.oswap-checkbox { 
+  border: #093f72 1px solid;
+  background-color: #efefff;
+  color: #09723f;
+}
+
+.alert { 
+  color: #ff0000;
+  
+}

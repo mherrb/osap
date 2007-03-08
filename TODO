@@ -1,0 +1,15 @@
+- pf rules to access APs
+- SSL redirection
+- view for local addresses in named
+- web admin
+- install script
+- better logs
+- account creation page
+- per users pf rules using anchors
+- help
+- i18n
+- modular auth system : sasl / radius / certificates ?
+- chroot httpd ?
+- privsep osapd ?
+- better redirections?
+
