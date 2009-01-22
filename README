@@ -15,6 +15,7 @@ Pre-requisites
 
  o a router running OpenBSD 4.0 or later on which to install this
  o p5-ldap from ports
+ o tabled from ports
 
 Typical use scenario
 --------------------
@@ -40,7 +41,7 @@ Installing
  o copy logo and css files to /www/htdocs
  o copy login.pl to /www/cgi-bin, edit it for LDAP auth parameters
  o copy osapd.pl to /usr/local/sbin
- o add osapd.pl startup in /etc/rc.local
+ o add osapd.pl and tabled startup in /etc/rc.local
  o edit rc.conf.local : start dhcpd, httpd (-u), named, enable PF.
 
 ----------------------------------------------------------------------
