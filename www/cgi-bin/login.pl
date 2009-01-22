@@ -203,7 +203,7 @@ sub del_user {
 
 #----------------------------------------------------------------------
 #
-# Test if the IP address of the client is already authorize
+# Test if the IP address of the client is already authorized
 #
 sub test_user {
 	my $q = $_[0];
