@@ -1,7 +1,6 @@
-ntpd_flags=		# enabled during install
-httpd_flags="-u -DSSL"	# for osap perl scripts
+ntpd_flags="-s"
+httpd_flags="-u -DSSL"  # for osap perl scripts
 dhcpd_flags="-L leased -C osap_users -A abandonned"
 named_flags=
-sendmail_flags="-L sm-mta  -bd -q30m"
-pf=YES			# Packet filter / NAT
-portmap=YES
+sendmail_flags="-L sm-mta -bd -q30m"
+pf=YES                  # Packet filter / NAT
