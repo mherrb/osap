@@ -35,7 +35,7 @@ Installing
 
  o setup router: sysctl.conf, hostname.if for interfaces
  o edit /etc/pf.conf
- o edit /etc/dhcpd.conf, /etc/dhcpd.interfaces
+ o edit /etc/dhcpd.conf
  o set up caching named
  o edit httpd.conf
  o copy logo and css files to /www/htdocs
@@ -47,7 +47,7 @@ Installing
 ----------------------------------------------------------------------
 License:
 
-Copyright (c) 2006 CNRS/LAAS
+Copyright (c) 2006-2010 CNRS/LAAS
 
 Permission to use, copy, modify, and distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
