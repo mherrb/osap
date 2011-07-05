@@ -1,4 +1,4 @@
-#!/usr/bin/perl --  # -*-Perl-*-
+#!/usr/bin/perl -T --  # -*-Perl-*-
 use Socket;
 use IO::Handle;
 use Sys::Syslog qw(:standard :extended);
@@ -11,7 +11,13 @@ use Time::HiRes qw(setitimer ITIMER_REAL);
 $name='/tmp/osap.socket';
 $table='osap_users';
 $db='/var/db/osap.db';
-$log_facility=LOG_DAEMON;
+$log_facility=LOG_LOCAL4;
+$httpd_user='www';
+
+#----------------------------------------------------------------------
+# sanitize environment
+$ENV{'PATH'} = '/bin:/sbin:/usr/bin:/usr/sbin';
+delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 
 #----------------------------------------------------------------------
 # Handler of cleanup timer - just mark that cleanup is needed
@@ -21,12 +27,25 @@ sub timerHandler {
 }
 
 #----------------------------------------------------------------------
+# Sanitize IP addresses
+#
+sub check_ip {
+	my $addr = $_[0];
+
+	if ($addr =~ /^(\d+\.\d+\.\d+\.\d+)$/) {
+		return $1;
+	} else {
+		return undef;
+	}
+}
+
+#----------------------------------------------------------------------
 # Get the 'leased' table from pf
 #
 sub get_leases {
 	my %leases;
 
-	$cmd = "pfctl -tleased -Ts";
+	$cmd = "/sbin/pfctl -tleased -Ts";
 	if (!open PFCTL, "$cmd|") {
 		syslog(LOG_ERR, "pfctl: $!");
 		return;
@@ -51,9 +70,13 @@ sub clean_db {
 	foreach $a (keys %osapdb) {
 		# Remove addresses that are not in leased table
 		if (!$leases{$a}) {
-			syslog(LOG_INFO, "clean_db: removing $a");
-			my $cmd = "pfctl -q -t $table -T delete $a";
-			system($cmd);
+			$a = check_ip($a);
+			syslog(LOG_INFO, "Clean $a $osapdb{$a}");
+			my $cmd = "/sbin/pfctl -q -t $table -T delete $a";
+			my $result = `$cmd 2>&1`;
+			if ($result ne '') {
+				syslog(LOG_ERR, "deleting $ip");
+			}
 			delete($osapdb{$a});
 		}
 	}
@@ -69,12 +92,15 @@ sub clean_db {
 # Init syslog
 setlogsock('unix');
 openlog('osapd', "ndelay,pid", $log_facility);
+syslog(LOG_INFO, "osapd ready");
 
 # Create the socket
 unlink($name);
 socket(Server, PF_UNIX, SOCK_STREAM, 0) || die ("osapd: socket: $!");
 bind(Server, sockaddr_un($name)) || die("osapd: bind: $!");
-chmod(0777, $name) || die("osapd: chmod $!");
+($login,$pass,$uid,$gid) = getpwnam($httpd_user);
+chown($uid, $gid, $name);
+chmod(0700, $name) || die("osapd: chmod $!");
 listen(Server, SOMAXCONN) || die("osapd: listen: $!");
 
 # open DB
@@ -83,13 +109,13 @@ $db = tie(%osapdb, 'DB_File', $db, O_CREAT|O_RDWR, 0600, $DB_HASH)
 
 # restore pf table
 foreach $ip (keys %osapdb) {
-	my $user = $osapdb{$ip};
-	my $cmd = "pfctl -q -t $table -T add $ip";
+	$ip = check_ip($ip);
+	my $cmd = "/sbin/pfctl -q -t $table -T add $ip";
 	my $result = `$cmd 2>&1`;
 	if ($result ne '') {
 		syslog(LOG_ERR, "adding $ip");
 	}
-	syslog(LOG_INFO, "restoring '$ip' '$user'");
+	syslog(LOG_DEBUG, "restoring '$ip' '$user'");
 }
 
 # timer
@@ -105,27 +131,42 @@ while (1) {
 	Client->autoflush(1);
 	while (defined($line = <Client>)) {
     		chop $line;
-    		syslog(LOG_DEBUG, "got '$line'");
+		($op, $addr, $user) = split(' ', $line);
+		syslog LOG_DEBUG, "$op $addr $user";
+		if ($op =~ /^(ADD|DEL|TST|QUIT)$/) {
+			$op = $1;
+		} else {
+			print Client "bad op '$op'\n";
+		}
     		$cmd = '';
-    		if ($line =~ /^ADD (.*) (.*)/i) {
-      			$cmd = "pfctl -q -t $table -T add $1";
-			$osapdb{$1} = $2; # $user
-    		} elsif ($line =~ /^DEL (.*)/i) {
-      			$cmd = "pfctl -q -t $table -T delete $1";
-			delete($osapdb{$1});
-    		} elsif ($line =~ /^TST (.*)/i) {
-      			# $cmd = "pfctl -q -t $table -T test $1";
-			$result = $osapdb{$1};
-			syslog(LOG_INFO, "test '$1' -> $result");
+	    	if ($op eq 'ADD') {
+			$addr = check_ip($addr);
+			if (defined($user) && $user =~ /([-_\/\@\w.]*)$/) {
+				$user = $1;
+			} else {
+				print client "Bad user $user\n";	
+			}
+      			$cmd = "/sbin/pfctl -q -t $table -T add $addr";
+			$osapdb{$addr} = $user;
+			syslog(LOG_INFO, "Connect $addr $user");
+    		} elsif ($op eq 'DEL') {
+			$addr = check_ip($addr);
+      			$cmd = "/sbin/pfctl -q -t $table -T delete $addr";
+			delete($osapdb{$addr});
+			syslog(LOG_INFO, "Disconnect $addr");
+    		} elsif ($op eq 'TST') {
+			$addr = check_ip($addr);
+			$result = $osapdb{$addr};
+			syslog(LOG_DEBUG, "Test '$addr' -> $result");
 			print Client "$result\n";
-    		} elsif (uc($line) eq "QUIT") {
+    		} elsif ($op eq 'QUIT') {
       			last;
     		} else {
       			print Client "unrecognized command '$line'\n";
     		}
-	
+
     		if ($cmd ne '') {
-			syslog(LOG_INFO, "executing $cmd");
+			syslog(LOG_DEBUG, "executing $cmd");
 			my $result = `$cmd 2>&1`;
 			if ($result ne '') {
 				print Client $result;
@@ -138,6 +179,6 @@ while (1) {
 	syslog(LOG_DEBUG, "Done with one client\n");
 	close(Client);
 }
-print "for loop exited\n";
+syslog(LOG_DEBUG, "for loop exited\n");
 untie $osapdb;
-
+exit(2);

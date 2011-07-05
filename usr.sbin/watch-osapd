@@ -1,0 +1,6 @@
+#!/bin/ksh
+while /usr/bin/true; do 
+	/usr/local/sbin/osapd
+	echo "osapd died: $?" | mail -s "osapd died" matthieu@laas.fr
+done
+exit 0

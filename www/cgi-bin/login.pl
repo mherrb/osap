@@ -1,19 +1,19 @@
-#!/usr/bin/perl --  # -*-Perl-*-
-use CGI;
+#!/usr/bin/perl -T --  # -*-Perl-*-
+use CGI qw/:standard/;
 use CGI::Pretty qw(:html3);
+use CGI::Carp;
 use Socket;
 use IO::Handle;
-use Net::LDAP;
+use Net::DNS;
+
 use Sys::Syslog qw(:standard :extended);
 
 #----------------------------------------------------------------------
 # Configuration section
 #
 $sockname =   '/tmp/osap.socket';	# name of Unix socket of osapd.pl
-$ldapserver = 'ldaps://ldap.laas.fr';	# LDAP server name or URL
-$ldapbasedn = 'dc=laas,dc=fr';		# LDAP base DN
  
-#----------------------------------------------------------------------
+#----------------------------------------------------------------------	
 #
 # Create the main login window
 #
@@ -24,36 +24,36 @@ sub login_window
 	print $q->header, $q->start_html(-title=>'OSAP Login',
 					 -style=>{-src=>'/osap/osap.css'});
 	
-	print $q->h1('Open Secure Access Point');
+	print $q->h1('LAAS visitor\'s network.');
 	print $q->start_form;
 	print $q->start_table({-width=>'100%'},{-border=>'0'});
-	my $login_widget=$q->table($q->Tr($q->td({-align=>RIGHT}, 'Login:'),
-					  $q->td($q->textfield({-size=>8, 
-								name=>'login'}))),
-				   $q->Tr($q->td({-align=>RIGHT}, 'Password:'),
-					  $q->td($q->password_field({-size=>8, 
-								     name=>'passwd'}))),
-				   $q->Tr($q->td({-colspan=>2, align=>RIGHT},
-						 $q->submit({-name=>OK, -value=>OK, 
-							     -class=>oswap-button-ok}))));
-	
-	print $q->Tr($q->td($q->img({src=>'/osap/puf200X172.gif', 
-				     width=>'200', 
-				     height=>'172'})),
-		     $q->td($login_widget));
+	print $q->Tr($q->td({align=>CENTER}, $q->img({src=>'/osap/Logo-LAAS-CNRS-400.png', 
+				     width=>'400', 
+				     height=>'81'})));
+	my $register_widget = $q->table({-border=>'0'},
+		$q->Tr($q->td({-colspan=>2, -align=>LEFT}, 
+		'Welcome to the LAAS visitor network.<BR>To enable your access please enter your name and e-mail address below:')),
+		$q->Tr($q->td({-align=>RIGHT}, 'Name:'),
+			$q->td($q->textfield({-size=>50, name=>'name'}))),
+		$q->Tr($q->td({-align=>RIGHT}, 'E-mail:'),
+			$q->td($q->textfield({-size=>50, name=>'email'}))));
+	print $q->Tr($q->td({align=>CENTER}, $register_widget));
 	my $read_terms="I've read and accepted the ";
 	my $terms_link=$q->a({-href=>'/osap/terms.html'}, 'terms of service');
-	print "\n";
 	print $q->Tr($q->td({-colspan=>2, align=>CENTER},
 			    $q->checkbox({-name=>'terms', 
 					  -class=>'oswap-checkbox',
 					  -label=>$read_terms}),
 			    $terms_link));
-	# print $read_terms . $terms_link;
+	my $connect_button = $q->table(
+		$q->Tr($q->td($q->submit({-name=>OK, -value=>Cancel,
+				-class=>'oswap-button-cancel'})),
+			$q->td($q->submit({-name=>OK, -value=>Connect,
+				-class=>'oswap-button-ok'}))));
+	print $q->Tr($q->td({align=>RIGHT}, $connect_button));
 	print $q->end_table, "\n";
 	print $q->end_form, "\n";
-	my $openbsd = $q->a({-href=>'http://www.openbsd.org/'}, 'OpenBSD');
-	print $q->div({-align=>RIGHT}, "powered by $openbsd"), "\n";
+	print $q->div({-align=>RIGHT}, "sysadmin\@laas.fr"), "\n";
 }
 
 #----------------------------------------------------------------------
@@ -63,20 +63,28 @@ sub login_window
 sub session_window {
 	my $q = $_[0];
 	my $ip = $q->remote_addr;
-	my $login = $q->param('login');
+	my $name = $q->param('name');
+	my $email = $q->param('email');
 	
-	print $q->header, $q->start_html(-title=>'OSAP Session',
+	syslog(LOG_INFO, "session: \'$name\', \'$email\', $ip");
+	print $q->header, $q->start_html(-title=>'LAAS network',
 					 -style=>{-src=>'/osap/osap.css'});
-	print $q->h1("Welcome on the network, $login");
 	print $q->start_form;
-	print $q->h2({align=>CENTER}, "Please keep this window open.");
+	print $q->h2({align=>CENTER}, "You are connected to  the LAAS network.");
+	print $q->h3({align=>CENTER}, "Please keep this window open.");
 	print $q->p("&nbsp;Once you want to disconnect from the network, ",
 	    "click on the button below:");
 	print $q->p("You can add this page to your bookmarks to come ",
 		   "back here later.");
+	print $q->p("If you are a member of the LAAS and are using this ",
+		"machine to connect on a regular basis, you should register ",
+		"it with sysadmin.");
+	print $q->p("If your machine is already registered, you should ",
+		"use the WIFI network id that was given to you ",
+		"instead of ", $q->b("laas-welcome"), ".");
 	print $q->start_table({width=>'100%'});
 	print $q->Tr({align=>CENTER},
-		     $q->td($q->submit({-name=>'Disconnect',
+		     $q->td($q->submit({-name=>'OK', -value=>'Disconnect',
 					-class=>'oswap-button-cancel'})));
 	print $q->end_table;
 	print $q->end_form;
@@ -90,47 +98,45 @@ sub disconnected_window {
 	my $q = $_[0];
 	my $myself = $q->self_url;
 	
-	print $q->header, $q->start_html(-title=>'OSAP Disconnected',
+	print $q->header, $q->start_html(-title=>'Disconnected',
 					 -style=>{-src=>'/osap/osap.css'});
-	print $q->h1("Disconnected.");
-	print $q->p("Thank you for using the OSAP service.");
-	print $q->p("You are now disconnected from the network.");
-	print $q->p("Click ", $q->a({href=>"$myself"}, 'here'), 
-		    " to reconnect");
-	print $q->p("Good bye.");
+	print $q->start_form;
+	print $q->h2({align=>CENTER}, "Disconnected.");
+	print $q->p("&nbsp;Thank you for using the LAAS Network.");
+	print $q->p("&nbsp;You are now disconnected.");
+	print $q->start_table({width=>'100%'});
+	print $q->Tr({align=>CENTER},
+		     $q->td($q->submit({-name=>'OK', -value=>'Reconnect',
+					-class=>'oswap-button-ok'})));
+	print $q->end_table;
+	print $q->end_form;
 }
 
 #----------------------------------------------------------------------
 #
-# Check login and password against an ldap database
+# Check e-mail address 
 #
-sub ldap_check_passwd {
-        ($login, $passwd) = @_;
-
-        my $ldap = Net::LDAP->new($ldapserver) || die "ldap: $@";
-        my $mesg = $ldap->bind;
-        
-        if ($mesg->code) {
-                syslog(LOG_ERR, "ldap anon bind error");
-                return 0;
-        }
-        $mesg = $ldap->search(base=>'dc=laas,dc=fr', filter=>"(uid=$login)");
-        if ($mesg->code || $mesg->count != 1) {
-                syslog(LOG_ERR, "ldap search error for $login: %d %d",
-		       $mesg->code, $mesg->count);
-                $ldap->unbind;
-                return 0;
-        }
-        my $dn = $mesg->entry(0)->dn;
+sub valid_email
+{
+	my $addr = $_[0];
 	
-        $mesg = $ldap->bind("$dn", password=>"$passwd");
-        if ($mesg->code) {
-                syslog(LOG_ERR, "ldap bind error for $login");
-                $ldap->unbind;  
-                return 0;
-        } 
-        $ldap->unbind;
-        return 1;
+	if ($addr =~ /^(\w|\-|\_|\.|\+)+\@(((\w|\-|\_)+\.)+[a-zA-Z]{2,})$/) {
+		$domain = "$2";
+		my $query = $resolver->search($domain);
+		if ($query) {
+			return 1;
+		} else {
+			my @mx = mx($resolver, $domain);
+			if (@mx) {
+				return 1;
+			} else {
+				syslog(LOG_INFO, "valid_email \'$addr\': can't find RR for $domain");
+				return 0;
+			}
+		}
+	} else {
+		return 0;
+	}
 }
 
 #----------------------------------------------------------------------
@@ -140,20 +146,25 @@ sub ldap_check_passwd {
 sub validate {
 	my $q = $_[0];
 	
-	my $login = $q->param('login');
-	my $password = $q->param('passwd');
+	my $name = $q->param('name');
+	my $email = $q->param('email');
 	my $terms = $q->param('terms');
 	my $ip = $q->remote_addr;
-	
-	if (defined($terms) && $terms == 'on') {
-		if (ldap_check_passwd($login, $password)) {
-			return "";
-		} else {
-			return "Incorrect login or password";
-		}
-	} else {
-		return "You must accept the term of services";
+
+	syslog(LOG_DEBUG, "validate \'$name\', \'$email\', $ip");
+	if ($name eq "") {
+		return "Please fill the \'Name\' field.";
 	}
+	if ($email eq "") {
+		return "Please fill the \'E-mail\' field.";
+	}
+	if (!valid_email($email)) {
+		return "Please use a valid \'E-mail\' address.";
+	}
+	if (!defined($terms) || $terms ne 'on') {
+		return "Please accept the term of services.";
+	}
+	return "";
 }
 
 #----------------------------------------------------------------------
@@ -184,8 +195,13 @@ sub osapd_client {
 sub add_user {
 	my $q = $_[0];
 	my $ip = $q->remote_addr;
-	my $user = $q->param('login');
-	syslog(LOG_INFO, "Add $user $ip");
+	my $email = $q->param('email');
+	my $name = $q->param('name');
+	my $user = "$name/$email";
+	$user =~ s/\s+/_/g;
+	$user = escapeHTML($user);
+
+	syslog(LOG_DEBUG, "Add $ip $user");
 	return osapd_client("ADD $ip $user");
 }
 
@@ -196,8 +212,8 @@ sub add_user {
 sub del_user {
 	my $q = $_[0];
 	my $ip = $q->remote_addr;
-	my $user = $q->param('login');
-	syslog(LOG_INFO, "Del $user $ip");
+
+	syslog(LOG_DEBUG, "Del $ip");
 	return osapd_client("DEL $ip");
 }
 
@@ -208,7 +224,8 @@ sub del_user {
 sub test_user {
 	my $q = $_[0];
 	my $ip = $q->remote_addr;
-	syslog(LOG_INFO, "Test $ip");
+
+	syslog(LOG_DEBUG, "Test $ip");
 	return osapd_client("TST $ip");
 }
 
@@ -219,24 +236,31 @@ sub test_user {
 $q = new CGI;
 setlogsock('unix');
 openlog('osap', "ndelay,pid", LOG_DAEMON);
+$resolver = Net::DNS::Resolver->new;
+
+# print $q->a(href=\"{-noScript=>"terms.htm", -script=>"javascript:popup('terms.html')"\", "Terms");
 
 if ($q->request_method eq "GET") {
 	# First time?
-	my $name = test_user($q);
-	if ($name ne "") {
-		$q->param(-name=>'login', -value=>"$name");
+	my $email = test_user($q);
+	if ($email ne "") {
+		$q->param(-name=>'email', -value=>"$email");
 		session_window($q);
 	} else {
 		login_window($q);
 	}
 } else {
 	if ($q->param()) {
-		my $which = $q->param('Disconnect');
+		my $which = $q->param('OK');
 
 		if ($which eq "Disconnect") {
 			# ignore errors ??
 			del_user($q);
 			disconnected_window($q);
+	 	} elsif ($which eq "Cancel") {
+			disconnected_window($q);
+		} elsif ($which eq "Reconnect") {
+			login_window($q);
 		} else {
 			my $result = validate($q);
 			if ($result ne "") {
