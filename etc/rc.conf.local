@@ -1,6 +1,7 @@
 ntpd_flags="-s"
 httpd_flags="-u -DSSL"  # for osap perl scripts
-dhcpd_flags="-L leased -C osap_users -A abandonned"
-named_flags=
+dhcpd_flags="-L leased -C osap_users -A abandonned vlan8 vlan21"
+ftpproxy_flags=""	# for normal use: ""
+named_flags=""
+snmpd_flags=""
 sendmail_flags="-L sm-mta -bd -q30m"
-pf=YES                  # Packet filter / NAT
