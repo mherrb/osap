@@ -6,16 +6,15 @@ Features:
 --------
 
  o uses PF & dhcpd features
- o LDAP user authentication. 
+ o Self registration (Name / e-mail address)
  o written in Perl
  o No fancy java/javascript
 
 Pre-requisites 
 --------------
 
- o a router running OpenBSD 4.0 or later on which to install this
+ o a router running OpenBSD 4.7 or later on which to install this
  o p5-ldap from ports
- o tabled from ports
 
 Typical use scenario
 --------------------
@@ -23,7 +22,7 @@ Typical use scenario
  o guest machines connecting to a network, need to be authenticated
  o the router gives them DHCP leases and redirects all web traffic 
    to the portal. The rest is blocked.
- o once authenticated, the IP is added to a different table, to let 
+ o once identified, the IP is added to a different table, to let 
    traffic pass the gateway
  o if the users clicks on the 'Disconnect' button, or its lease expires, 
    go back to initial (blocked) state
@@ -41,8 +40,8 @@ Installing
  o copy logo and css files to /www/htdocs
  o copy login.pl to /www/cgi-bin, edit it for LDAP auth parameters
  o copy osapd to /usr/local/sbin
- o add osapd.pl and tabled startup in /etc/rc.local
- o edit rc.conf.local : start dhcpd, httpd (-u), named, enable PF.
+ o add osapd startup in /etc/rc.local
+ o edit rc.conf.local : start dhcpd, httpd (-u), named.
 
 ----------------------------------------------------------------------
 License:
