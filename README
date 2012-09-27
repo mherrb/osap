@@ -14,7 +14,6 @@ Pre-requisites
 --------------
 
  o a router running OpenBSD 4.7 or later on which to install this
- o p5-ldap from ports
 
 Typical use scenario
 --------------------
