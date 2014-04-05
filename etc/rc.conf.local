@@ -1,6 +1,6 @@
 ntpd_flags="-s"
 httpd_flags="-u -DSSL"  # for osap perl scripts
-dhcpd_flags="-L leased -C osap_users -A abandonned vlan8 vlan21"
+dhcpd_flags="-L leased -C osap_users -A abandonned vlan8"
 ftpproxy_flags=""	# for normal use: ""
 named_flags=""
 snmpd_flags=""
